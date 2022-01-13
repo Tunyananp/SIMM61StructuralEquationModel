@@ -1,0 +1,100 @@
+getwd()
+setwd("C:/Users/DELL/Desktop")
+
+library(lavaan) 
+library(semPlot)
+library(semptools) 	
+library(tidyverse) 
+library(CompQuadForm) 	
+library(ICS) 
+library(psychTools)
+
+mydata = holzinger.swineford
+
+#data management 
+
+
+mydata <- mydata %>%
+  rename(Visualtest = t01_visperc,
+         Cubes = t02_cubes,
+        Paperform = t03_frmbord,
+        scoreLozen = t04_lozenges,
+        parascore = t06_paracomp,
+        sentscore = t07_sentcomp,
+        wordscore = t09_wordmean,
+        speedaddscore = t10_addition,
+        dotscore = t12_countdot,
+        discriscore = t13_sccaps)
+        
+#Specify a structural equation model (Model A)
+
+modelA <-
+"
+Visab =~ Visualtest + Cubes + Paperform + scoreLozen
+Verab =~ parascore + sentscore + wordscore
+Spab =~ speedaddscore + dotscore + discriscore 
+Visab ~~ Verab + Spab
+
+"
+#Fitting the model 
+fit1 <- sem(modelA, data = mydata)
+
+#Visualization
+
+semPaths(fit1)
+
+#Identification of the model 
+
+mvnorm.kur.test(mydata[, c("Visualtest", "Cubes", "Paperform", "scoreLozen", "parascore", "sentscore", "wordscore", "speedaddscore", "dotscore", "discriscore")])
+
+mvnorm.skew.test(mydata[, c("Visualtest", "Cubes", "Paperform", "scoreLozen", "parascore", "sentscore", "wordscore", "speedaddscore", "dotscore", "discriscore")])
+
+summary(fit1)
+summary(fit1, fit.measures = T)
+
+#ML solution
+fit1_MLM <-sem(modelA, data = mydata, estimator = "MLM")
+summary(fit1_MLM, fit.measures = T)
+
+#Compare the model fit of model A and model B 
+
+ModelB <-
+"
+Visab =~ Visualtest + Cubes + Paperform + scoreLozen
+Verab =~ parascore + sentscore + wordscore
+Spab =~ speedaddscore + dotscore + discriscore 
+Visab ~~ Verab + Spab
+speedaddscore ~~ dotscore
+
+"
+#Fitting the model 
+fit2 <- sem(ModelB, data = mydata)
+
+#Visualization
+
+semPaths(fit2)
+
+fit2_MLM <-sem(ModelB, data = mydata, estimator = "MLM")
+
+anova(fit1_MLM, fit2_MLM)
+
+#Least influence by visual perception ability 
+
+semPaths(fit2_MLM, whatLabels = "std")
+
+#Classical Mediation model 
+
+model_mediation =
+
+"
+Visualtest ~ discriscore + dotscore
+dotscore ~ discriscore
+
+"
+
+fitmediation <- sem(model_mediation, data = mydata)
+semPaths(fitmediation, whatLabels = "est")
+
+fitme_MLM <-sem(model_mediation, data = mydata, estimator = "MLM")
+semPaths(fitme_MLM, whatLabels = "est")
+summary(fitme_MLM)
